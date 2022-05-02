@@ -1,8 +1,10 @@
 ﻿using DevGames.API.Entities;
 using DevGames.API.Models;
 using DevGames.API.Persistence;
+using DevGames.API.Persistence.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DevGames.API.Controllers
 {
@@ -10,79 +12,54 @@ namespace DevGames.API.Controllers
     [ApiController]
     public class PostsController : ControllerBase
     {
-        private readonly DevGamesContext _devGamesContext;
-        public PostsController(DevGamesContext devGamesContext)
+        private readonly IPostRepository _repository;
+        public PostsController(IPostRepository repository)
         {
-            this._devGamesContext = devGamesContext;
+            this._repository = repository;
         }
 
         [HttpGet]
         public IActionResult GetAll(int id)
         {
-            var board = _devGamesContext.Boards.SingleOrDefault(p => p.Id == id);
+            var posts = _repository.GetAllByBoard(id);
 
-            if(board == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(board.Posts);
+            return Ok(posts);
         }
 
         [HttpGet("{postId}")]
-        public IActionResult GetById(int id, int postId)
+        public IActionResult GetById(int postId)
         {
-            var board = _devGamesContext.Boards.SingleOrDefault(p => p.Id == id);
+            var posts = _repository.GetById(postId);
 
-            if (board == null)
+            if (posts == null)
                 return NotFound();
-            
-            var post = board.Posts.SingleOrDefault(p => p.Id == id);
 
-            if(post == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(post);
+            return Ok(posts);
         }
 
 
         [HttpPost]
         public IActionResult Post(int id, AddPostInputModel model)
         {
-            var board = _devGamesContext.Boards.SingleOrDefault(p => p.Id == id);
+            var posts = new Post(model.Title, model.Description, id);
 
-            if (board == null)
-                return NotFound();
+            _repository.Add(posts);
 
-            var post = new Post(model.Id, model.Title, model.Description);
-
-            board.AddPost(post);
-
-            return CreatedAtAction("GetById", new { id = id, postId = model.Id }, model);
+            return CreatedAtAction("GetById", new { id = id, postId = posts.Id }, model);
         }
 
 
         [HttpPost("{postId}/comments")]
-        public IActionResult PostComment(int id, int postId, AddCommentInputModel model)
+        public IActionResult PostComment(int postId, AddCommentInputModel model)
         {
+            var postExists = _repository.PostExits(postId);
 
-            var board = _devGamesContext.Boards.SingleOrDefault(p => p.Id == id);
-
-            if (board == null)
+            if (!postExists)
                 return NotFound();
 
-            var post = board.Posts.SingleOrDefault(p => p.Id == id);
+            var comment = new Comment(model.Title, model.Description, model.User, postId);
 
-            if (post == null)
-            {
-                return NotFound();
-            }
-
-            var comment = new Comment(model.Title, model.Description, model.User);
-
-            post.AddComment(comment);
+            _repository.AddComment(comment);
 
             return NoContent();
         }
