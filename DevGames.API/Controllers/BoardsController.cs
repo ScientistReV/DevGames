@@ -2,6 +2,7 @@
 using DevGames.API.Entities;
 using DevGames.API.Models;
 using DevGames.API.Persistence;
+using DevGames.API.Persistence.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,24 +12,25 @@ namespace DevGames.API.Controllers
     [ApiController]
     public class BoardsController : ControllerBase
     {
-        private readonly DevGamesContext _devGamesContext;
-
+        private readonly IBoardRepository _boardRepository;
         private readonly IMapper _mapper;
-        public BoardsController(DevGamesContext devGamesContext, IMapper mapper)
+        public BoardsController(IMapper mapper, IBoardRepository repository)
         {
-            this._devGamesContext = devGamesContext;
+            this._boardRepository = repository;
             this._mapper = mapper;
         }
         [HttpGet]
         public IActionResult GetAll()
         {
-            return Ok(_devGamesContext.Boards);
+            var boards = _boardRepository.GetAll();
+
+            return Ok(boards);
         }
 
         [HttpGet("{id}")]
         public IActionResult GetById(int id)
         {
-            var board = _devGamesContext.Boards.SingleOrDefault(p => p.Id == id);
+            var board = _boardRepository.GetById(id);
             
             if(board == null)
             {
@@ -42,17 +44,16 @@ namespace DevGames.API.Controllers
         public IActionResult Post(AddBoardsInputModel model)
         {
             var board = _mapper.Map<Board>(model);
-            //var board = new Board(model.Id, model.GameTitle, model.Description, model.Rules);
 
-            _devGamesContext.Boards.Add(board);
+            _boardRepository.Add(board);
 
-            return CreatedAtAction("GetById", new { id = model.Id}, model);
+            return CreatedAtAction("GetById", new { id = board.Id}, model);
         }
 
         [HttpPut("{id}")]
         public IActionResult Update(int id, UpdateBoardsInputModel model)
         {
-            var board = _devGamesContext.Boards.SingleOrDefault(p => p.Id == id);
+            var board = _boardRepository.GetById(id);
 
             if (board == null)
             {
@@ -60,6 +61,7 @@ namespace DevGames.API.Controllers
             }
 
             board.Update(model.Description, model.Rules);
+            _boardRepository.Update(board);
 
             return NoContent();
         }
